@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astraea: Deep Space Sector 100</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Share+Tech+Mono&display=swap');
+
+        body {
+            background-color: #030712;
+            color: #e0f2fe;
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: #020617;
+        }
+
+        /* Glassmorphic UI overlay */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-danger {
+            background: rgba(30, 10, 15, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        /* Tech borders & glows */
+        .glow-blue {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+        }
+        .glow-red {
+            text-shadow: 0 0 10px rgba(244, 63, 94, 0.6);
+        }
+        .glow-amber {
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+        }
+
+        .border-glow-blue {
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.4);
+            border-radius: 2px;
+        }
+
+        /* Scanline Overlay */
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* Hotkey ability slot styling */
+        .ability-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .ability-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(56, 189, 248, 0.8);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden flex items-center justify-center">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas" class="absolute inset-0 z-0"></canvas>
+
+    <!-- Scanline effect for retro-futuristic arcade feel -->
+    <div class="scanlines absolute inset-0 z-10 pointer-events-none"></div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="mainMenu" class="absolute z-20 inset-0 flex items-center justify-center p-4">
+        <div class="glass-panel border-cyan-500/30 max-w-4xl w-full p-8 rounded-2xl border-2 border-glow-blue flex flex-col gap-6 text-center">
+            
+            <div class="space-y-2">
+                <p class="text-cyan-400 tracking-widest text-xs font-semibold uppercase">Tactical Vacuum Combat Simulator</p>
+                <h1 class="font-orbitron text-5xl md:text-6xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-400 glow-blue">
+                    ASTRAEA
+                </h1>
+                <p class="text-slate-400 text-sm">SECTOR 100 DEEP SPACE VOYAGE</p>
+            </div>
+
+            <!-- Configuration Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left my-2">
+                
+                <!-- Mode Selection -->
+                <div class="glass-panel p-5 rounded-xl space-y-3 border border-slate-700">
+                    <h3 class="font-orbitron text-cyan-300 font-semibold text-lg flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> OPERATIONAL MODE
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btnMode1P" onclick="setMode('1P')" class="p-3 rounded-lg border border-cyan-500 bg-cyan-500/20 text-cyan-200 font-semibold font-orbitron hover:bg-cyan-500/30 transition text-center">
+                            1 PLAYER
+                        </button>
+                        <button id="btnMode2P" onclick="setMode('2P')" class="p-3 rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 font-semibold font-orbitron hover:bg-slate-700/50 transition text-center">
+                            2P CO-OP
+                        </button>
+                    </div>
+                    <p id="modeDesc" class="text-xs text-slate-400 leading-relaxed min-h-[36px]">
+                        Single Pilot Command. Pilot controls flight vector, thrusters, kinetic primary battery, and 10 tactical ability suites.
+                    </p>
+                </div>
+
+                <!-- Difficulty Selection -->
+                <div class="glass-panel p-5 rounded-xl space-y-3 border border-slate-700">
+                    <h3 class="font-orbitron text-cyan-300 font-semibold text-lg flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> THREAT LEVEL
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="btnDiff0" onclick="setDifficulty(0)" class="p-2 text-xs rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 font-orbitron hover:bg-slate-700 transition">
+                            ENSIGN
+                        </button>
+                        <button id="btnDiff1" onclick="setDifficulty(1)" class="p-2 text-xs rounded-lg border border-amber-500/50 bg-amber-500/20 text-amber-200 font-orbitron hover:bg-amber-500/30 transition">
+                            CAPTAIN
+                        </button>
+                        <button id="btnDiff2" onclick="setDifficulty(2)" class="p-2 text-xs rounded-lg border border-slate-700 bg-slate-800/40 text-slate-400 font-orbitron hover:bg-slate-700 transition">
+                            ADMIRAL
+                        </button>
+                    </div>
+                    <p id="diffDesc" class="text-xs text-slate-400 leading-relaxed min-h-[36px]">
+                        Standard hostile density. Inertial drift active. Thruster heat dissipation tuned for combat standard.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Controls Quick Guide -->
+            <div class="glass-panel p-4 rounded-xl text-left border border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                    <span class="font-orbitron text-cyan-400 font-bold block mb-1">PLAYER 1 CONTROLS:</span>
+                    <span class="text-slate-300">WASD:</span> Thrust/Steer | <span class="text-slate-300">Space:</span> Plasma Gun<br>
+                    <span class="text-slate-300">Keys 1 - 5:</span> Tactical Abilities 1 - 5<br>
+                    <span class="text-slate-300">X:</span> Toggle Inertial Dampeners
+                </div>
+                <div id="p2ControlGuide" class="opacity-50">
+                    <span class="font-orbitron text-indigo-400 font-bold block mb-1">PLAYER 2 CONTROLS (CO-OP):</span>
+                    <span class="text-slate-300">Arrow Keys:</span> Thrust/Steer | <span class="text-slate-300">Enter / Num0:</span> Cannon<br>
+                    <span class="text-slate-300">Keys 6 - 0:</span> Tactical Abilities 6 - 10<br>
+                    <span class="text-slate-300">M:</span> Toggle Inertial Dampeners
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
+                <button onclick="startGame()" class="w-full sm:w-auto px-10 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-orbitron font-black text-xl tracking-wider shadow-lg shadow-cyan-500/30 hover:shadow-cyan-400/50 transition transform hover:-translate-y-0.5 active:translate-y-0">
+                    ENGAGE SECTOR VOYAGE
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- HUD OVERLAY (In Game) -->
+    <div id="hudOverlay" class="absolute inset-0 z-10 pointer-events-none hidden flex flex-col justify-between p-4 md:p-6">
+        
+        <!-- Top Navigation & Global Objective Bar -->
+        <div class="w-full flex flex-col items-center gap-2">
+            <!-- Sector Goal Tracker -->
+            <div class="w-full max-w-3xl glass-panel p-3 rounded-xl border border-cyan-500/30 flex flex-col gap-1.5 pointer-events-auto">
+                <div class="flex justify-between items-center text-xs font-orbitron">
+                    <span class="text-cyan-400 font-bold tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> SECTOR TRANSIT
+                    </span>
+                    <span class="text-slate-300"><span id="hudDistance">0.0</span> / 100.0 METERS</span>
+                    <span id="hudDifficultyTag" class="text-amber-400 font-semibold">[CAPTAIN]</span>
+                </div>
+                <!-- Progress bar container -->
+                <div class="w-full h-3 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-slate-800 relative">
+                    <div id="distanceProgressBar" class="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-indigo-500 rounded-full transition-all duration-100" style="width: 0%;"></div>
+                    <!-- Warp Gate Marker -->
+                    <div class="absolute right-0 top-0 bottom-0 w-2 bg-emerald-400/80 shadow-[0_0_8px_#34d399]"></div>
+                </div>
+            </div>
+
+            <!-- Global Score & Multiplier HUD -->
+            <div class="flex gap-6 text-xs font-orbitron text-slate-300 glass-panel px-4 py-1.5 rounded-lg border border-slate-800">
+                <div>SCORE: <span id="hudScore" class="text-cyan-300 font-bold">0</span></div>
+                <div>MULTIPLIER: <span id="hudMultiplier" class="text-amber-400 font-bold">1.0x</span></div>
+                <div>KILLS: <span id="hudKills" class="text-emerald-400 font-bold">0</span></div>
+                <div>ACCURACY: <span id="hudAccuracy" class="text-sky-300 font-bold">100%</span></div>
+            </div>
+        </div>
+
+        <!-- Middle Quick Status Alerts (Center Messages) -->
+        <div id="hudAlert" class="self-center font-orbitron text-2xl font-black text-rose-500 tracking-widest opacity-0 transition-opacity duration-300 pointer-events-none glow-red bg-slate-950/80 px-6 py-2 rounded-lg border border-rose-500/50">
+            SYSTEM OVERHEAT
+        </div>
+
+        <!-- Bottom Controls & Player Stats Panel -->
+        <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-4 items-end pointer-events-auto">
+            
+            <!-- Player 1 Status Panel -->
+            <div id="p1HudPanel" class="lg:col-span-3 glass-panel p-3.5 rounded-xl border border-cyan-500/40 space-y-2">
+                <div class="flex justify-between items-center font-orbitron">
+                    <span class="text-cyan-400 font-black text-sm flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-cyan-400"></span> PILOT ALPHA (P1)
+                    </span>
+                    <span id="p1Dampeners" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">DAMP: ON (X)</span>
+                </div>
+
+                <!-- Hull Bar -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">HULL INTEGRITY</span>
+                        <span id="p1HullVal" class="text-emerald-400 font-bold">100%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p1HullBar" class="h-full bg-emerald-500 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Shield Bar -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">ENERGY SHIELD</span>
+                        <span id="p1ShieldVal" class="text-cyan-400 font-bold">100%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p1ShieldBar" class="h-full bg-cyan-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Heat / Reactor Gauge -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">REACTOR HEAT</span>
+                        <span id="p1HeatVal" class="text-amber-400 font-bold">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p1HeatBar" class="h-full bg-amber-400 transition-all duration-100" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Telemetry -->
+                <div class="flex justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 font-mono">
+                    <span>VELOCITY: <span id="p1Vel" class="text-slate-200">0 m/s</span></span>
+                    <span>G-FORCE: <span id="p1GForce" class="text-slate-200">1.0 G</span></span>
+                </div>
+            </div>
+
+            <!-- Abilities Dock (Middle Span) -->
+            <div class="lg:col-span-6 glass-panel p-3 rounded-xl border border-slate-700/80 flex flex-col gap-2">
+                <div class="text-[10px] font-orbitron text-slate-400 uppercase tracking-wider flex justify-between">
+                    <span>TACTICAL ABILITY MATRIX</span>
+                    <span class="text-cyan-400">HOTKEYS: [1-5 P1] / [6-0 P2]</span>
+                </div>
+
+                <div id="abilitiesDock" class="grid grid-cols-5 gap-1.5">
+                    <!-- 10 abilities will be generated programmatically here -->
+                </div>
+            </div>
+
+            <!-- Player 2 Status Panel (Co-op) -->
+            <div id="p2HudPanel" class="lg:col-span-3 glass-panel p-3.5 rounded-xl border border-indigo-500/40 space-y-2 opacity-50">
+                <div class="flex justify-between items-center font-orbitron">
+                    <span class="text-indigo-400 font-black text-sm flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400"></span> PILOT BETA (P2)
+                    </span>
+                    <span id="p2Dampeners" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">DAMP: ON (M)</span>
+                </div>
+
+                <!-- Hull Bar -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">HULL INTEGRITY</span>
+                        <span id="p2HullVal" class="text-emerald-400 font-bold">100%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p2HullBar" class="h-full bg-emerald-500 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Shield Bar -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">ENERGY SHIELD</span>
+                        <span id="p2ShieldVal" class="text-indigo-400 font-bold">100%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p2ShieldBar" class="h-full bg-indigo-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Heat / Reactor Gauge -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[11px]">
+                        <span class="text-slate-400">REACTOR HEAT</span>
+                        <span id="p2HeatVal" class="text-amber-400 font-bold">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                        <div id="p2HeatBar" class="h-full bg-amber-400 transition-all duration-100" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Telemetry -->
+                <div class="flex justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 font-mono">
+                    <span>VELOCITY: <span id="p2Vel" class="text-slate-200">0 m/s</span></span>
+                    <span>G-FORCE: <span id="p2GForce" class="text-slate-200">1.0 G</span></span>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MISSION DEBRIEF / GAME OVER MODAL -->
+    <div id="gameOverModal" class="absolute z-30 inset-0 flex items-center justify-center p-4 hidden">
+        <div id="debriefPanel" class="glass-panel border-2 max-w-2xl w-full p-8 rounded-2xl flex flex-col gap-6 text-center shadow-2xl">
+            
+            <div class="space-y-1">
+                <p id="debriefSub" class="text-cyan-400 text-xs font-orbitron tracking-widest uppercase">MISSION DEBRIEFING</p>
+                <h2 id="debriefTitle" class="font-orbitron text-4xl font-black tracking-wider text-emerald-400">
+                    SECTOR VOYAGE COMPLETED
+                </h2>
+            </div>
+
+            <!-- Stats Detailed Breakdown Grid -->
+            <div class="glass-panel p-5 rounded-xl border border-slate-700/60 text-left grid grid-cols-2 gap-4 text-xs font-mono">
+                <div>
+                    <span class="text-slate-400 block">DISTANCE TRAVERSED:</span>
+                    <span id="summaryDistance" class="text-lg font-bold text-cyan-300">100.0 m</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block">FINAL SCORE:</span>
+                    <span id="summaryScore" class="text-lg font-bold text-amber-300">0</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block">HOSTILES NEUTRALIZED:</span>
+                    <span id="summaryKills" class="text-slate-200 font-bold">0</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block">WEAPON ACCURACY:</span>
+                    <span id="summaryAccuracy" class="text-slate-200 font-bold">0%</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block">DAMAGE DEALT:</span>
+                    <span id="summaryDamage" class="text-slate-200 font-bold">0</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block">ABILITIES ACTIVATED:</span>
+                    <span id="summaryAbilities" class="text-slate-200 font-bold">0</span>
+                </div>
+                <div class="col-span-2 pt-2 border-t border-slate-800 flex justify-between items-center font-orbitron">
+                    <span class="text-slate-400">CO-OP MVP PILOT:</span>
+                    <span id="summaryMvp" class="text-indigo-300 font-bold">PILOT ALPHA</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4 justify-center">
+                <button onclick="returnToMenu()" class="px-8 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-orbitron font-bold text-sm transition border border-slate-600">
+                    MAIN MENU
+                </button>
+                <button onclick="startGame()" class="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-orbitron font-black text-sm tracking-wider transition shadow-lg shadow-cyan-500/20">
+                    RE-ENGAGE SECTOR
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME LOGIC -->
+    <script>
+        /* ==========================================================================
+           AUDIO SYNTHESIZER (Web Audio API)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                    this.initialized = true;
+                } catch(e) {
+                    console.warn("Web Audio API not supported.");
+                }
+            }
+
+            playLaser(isP2 = false) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(isP2 ? 550 : 700, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            playExplosion(type = 'medium') {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const dur = type === 'large' ? 0.8 : (type === 'small' ? 0.25 : 0.45);
+                
+                // Buffer noise
+                const bufferSize = this.ctx.sampleRate * dur;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(type === 'large' ? 300 : 600, now);
+                filter.frequency.linearRampToValueAtTime(40, now + dur);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(type === 'large' ? 0.4 : 0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start(now);
+            }
+
+            playAbilitySound(type) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                if (type === 'emp' || type === 'nuke') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                } else {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.linearRampToValueAtTime(880, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                }
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+
+            playShieldHit() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* ==========================================================================
+           TACTICAL ABILITIES CONFIGURATION (10 UNIQUE ABILITIES)
+           ========================================================================== */
+        const ABILITIES = [
+            { id: 1, name: "EMP Blast", cd: 12, cost: 25, icon: "⚡", desc: "Disables nearby alien craft and wipes incoming plasma projectiles.", hotkeyP1: "1", hotkeyP2: "6" },
+            { id: 2, name: "Quantum Dash", cd: 6, cost: 15, icon: "⚡", desc: "Instant high-velocity spatial phase thrust along current trajectory.", hotkeyP1: "2", hotkeyP2: "7" },
+            { id: 3, name: "Point Defense", cd: 15, cost: 30, icon: "🛡️", desc: "Auto-turret array targeting incoming hostile warheads for 6s.", hotkeyP1: "3", hotkeyP2: "8" },
+            { id: 4, name: "Shield Overcharge", cd: 20, cost: 40, icon: "🔮", desc: "100% invincible kinetic barrier absorbing incoming damage.", hotkeyP1: "4", hotkeyP2: "9" },
+            { id: 5, name: "Gravity Anchor", cd: 18, cost: 35, icon: "🌀", desc: "Deploys singularity pulling hostiles into an orbital death trap.", hotkeyP1: "5", hotkeyP2: "0" },
+            { id: 6, name: "Plasma Beam", cd: 16, cost: 35, icon: "🔥", desc: "Heavy continuous linear beam slicing through enemy armor.", hotkeyP1: "--", hotkeyP2: "--" },
+            { id: 7, name: "Target Nanites", cd: 10, cost: 20, icon: "🦠", desc: "Homing nanite swarm stripping enemy defenses and slowing speed.", hotkeyP1: "--", hotkeyP2: "--" },
+            { id: 8, name: "Tactical Cloak", cd: 14, cost: 25, icon: "👻", desc: "Stealth shroud making ship invisible to targeting lock for 5s.", hotkeyP1: "--", hotkeyP2: "--" },
+            { id: 9, name: "Micro-Warhead", cd: 22, cost: 50, icon: "🚀", desc: "High-yield nuclear spatial missile with massive blast radius.", hotkeyP1: "--", hotkeyP2: "--" },
+            { id: 10, name: "Siphon Matrix", cd: 15, cost: 20, icon: "🧬", desc: "Drains alien shield energy to instantly repair hull and shield.", hotkeyP1: "--", hotkeyP2: "--" }
+        ];
+
+        /* ==========================================================================
+           GLOBAL GAME STATE & CONSTANTS
+           ========================================================================== */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameMode = '1P'; // '1P' or '2P'
+        let difficultyLevel = 1; // 0: Ensign, 1: Captain, 2: Admiral
+        let isGameRunning = false;
+        let lastTimestamp = 0;
+
+        // Difficulty Tuning Factors
+        const DIFF_SETTINGS = [
+            { name: "ENSIGN", spawnInterval: 2200, enemySpeedMult: 0.75, enemyHpMult: 0.8, heatDecay: 25, titleColor: "#38bdf8" },
+            { name: "CAPTAIN", spawnInterval: 1500, enemySpeedMult: 1.0, enemyHpMult: 1.0, heatDecay: 20, titleColor: "#f59e0b" },
+            { name: "ADMIRAL", spawnInterval: 950, enemySpeedMult: 1.3, enemyHpMult: 1.35, heatDecay: 15, titleColor: "#f43f5e" }
+        ];
+
+        // Global Sector Progress Metrics
+        let sectorDistance = 0.0; // 0.0m to 100.0m Goal
+        const SECTOR_GOAL = 100.0;
+        let gameScore = 0;
+        let scoreMultiplier = 1.0;
+        let totalKills = 0;
+        let totalShotsFired = 0;
+        let totalShotsHit = 0;
+        let totalDamageDealt = 0;
+        let totalAbilitiesUsed = 0;
+        let screenShakeTime = 0;
+
+        // Key Input Handler State
+        const keys = {};
+
+        /* ==========================================================================
+           PLAYER ENTITY CLASS WITH REAL SPACE PHYSICS
+           ========================================================================== */
+        class PlayerShip {
+            constructor(id, x, y, color) {
+                this.id = id; // 1 or 2
+                this.x = x;
+                this.y = y;
+                this.radius = 18;
+                this.color = color; // e.g. '#38bdf8' for P1, '#818cf8' for P2
+
+                // Physics Engine Props
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = -Math.PI / 2; // Facing Upwards
+                this.rotationSpeed = 4.2; // Rads/sec
+                this.thrustPower = 380; // Acceleration px/s^2
+                this.dampenersOn = true;
+                this.dragCoefficient = 0.985; // Drag when dampeners ON
+
+                // Stats & Status Gauges
+                this.maxHull = 100;
+                this.hull = 100;
+                this.maxShield = 100;
+                this.shield = 100;
+                this.shieldRegenRate = 8; // Shield / sec
+                this.heat = 0; // 0 to 100
+                this.overheated = false;
+
+                // Ability Timers & States
+                this.abilityCooldowns = new Array(10).fill(0); // Timers in seconds
+                this.invincibleTimer = 0;
+                this.cloakTimer = 0;
+                this.pointDefenseTimer = 0;
+                this.beamTimer = 0;
+
+                // Controls Mapping
+                this.keyUp = id === 1 ? 'KeyW' : 'ArrowUp';
+                this.keyDown = id === 1 ? 'KeyS' : 'ArrowDown';
+                this.keyLeft = id === 1 ? 'KeyA' : 'ArrowLeft';
+                this.keyRight = id === 1 ? 'KeyD' : 'ArrowRight';
+                this.keyFire = id === 1 ? 'Space' : (keys['Numpad0'] ? 'Numpad0' : 'Enter');
+                this.keyDampener = id === 1 ? 'KeyX' : 'KeyM';
+
+                // Individual Stats for MVP Evaluation
+                this.damageDealt = 0;
+                this.kills = 0;
+            }
+
+            update(dt) {
+                if (this.hull <= 0) return;
+
+                // Decrement Status Timers
+                if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
+                if (this.cloakTimer > 0) this.cloakTimer -= dt;
+                if (this.pointDefenseTimer > 0) this.pointDefenseTimer -= dt;
+                if (this.beamTimer > 0) this.beamTimer -= dt;
+
+                // Ability Cooldown Timers
+                for (let i = 0; i < 10; i++) {
+                    if (this.abilityCooldowns[i] > 0) {
+                        this.abilityCooldowns[i] = Math.max(0, this.abilityCooldowns[i] - dt);
+                    }
+                }
+
+                // Shield Regeneration
+                if (this.shield < this.maxShield) {
+                    this.shield = Math.min(this.maxShield, this.shield + this.shieldRegenRate * dt);
+                }
+
+                // Heat Dissipation
+                const currentDiff = DIFF_SETTINGS[difficultyLevel];
+                if (this.heat > 0) {
+                    this.heat = Math.max(0, this.heat - currentDiff.heatDecay * dt);
+                }
+                if (this.heat === 0) {
+                    this.overheated = false;
+                }
+
+                // Steering / Rotation
+                if (keys[this.keyLeft]) this.angle -= this.rotationSpeed * dt;
+                if (keys[this.keyRight]) this.angle += this.rotationSpeed * dt;
+
+                // Physics Acceleration Thrust
+                let isThrusting = false;
+                if (keys[this.keyUp] && !this.overheated) {
+                    isThrusting = true;
+                    const accel = this.thrustPower * dt;
+                    this.vx += Math.cos(this.angle) * accel;
+                    this.vy += Math.sin(this.angle) * accel;
+
+                    // Generate Engine Thruster Particles
+                    createThrusterParticle(
+                        this.x - Math.cos(this.angle) * this.radius,
+                        this.y - Math.sin(this.angle) * this.radius,
+                        this.angle,
+                        this.color
+                    );
+
+                    // Add heat per thrust second
+                    this.heat = Math.min(100, this.heat + 12 * dt);
+                    if (this.heat >= 100) this.overheated = true;
+                }
+
+                // Reverse / Brake Thrust
+                if (keys[this.keyDown]) {
+                    this.vx *= 0.95;
+                    this.vy *= 0.95;
+                }
+
+                // Apply Inertial Dampener Physics
+                if (this.dampenersOn && !isThrusting) {
+                    this.vx *= Math.pow(this.dragCoefficient, dt * 60);
+                    this.vy *= Math.pow(this.dragCoefficient, dt * 60);
+                }
+
+                // Apply Position Velocity Vector
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // Screen Boundary Constraints with Elastic Physics Bounce
+                const margin = this.radius;
+                if (this.x < margin) { this.x = margin; this.vx = -this.vx * 0.5; }
+                if (this.x > canvas.width - margin) { this.x = canvas.width - margin; this.vx = -this.vx * 0.5; }
+                if (this.y < margin) { this.y = margin; this.vy = -this.vy * 0.5; }
+                if (this.y > canvas.height - margin) { this.y = canvas.height - margin; this.vy = -this.vy * 0.5; }
+
+                // Fire Primary Weapon Cannon
+                if ((keys[this.keyFire] || (this.id === 2 && keys['Numpad0'])) && !this.fireCooldown) {
+                    this.fireCannon();
+                }
+
+                if (this.fireCooldown > 0) {
+                    this.fireCooldown -= dt;
+                    if (this.fireCooldown <= 0) this.fireCooldown = 0;
+                }
+
+                // Point Defense Auto Turret System
+                if (this.pointDefenseTimer > 0) {
+                    this.runPointDefense(dt);
+                }
+            }
+
+            fireCannon() {
+                if (this.overheated) return;
+
+                this.fireCooldown = 0.14; // Shots every 140ms
+                totalShotsFired++;
+
+                // Muzzle Offset Position
+                const muzzleX = this.x + Math.cos(this.angle) * (this.radius + 4);
+                const muzzleY = this.y + Math.sin(this.angle) * (this.radius + 4);
+                
+                // Bullet Speed Vector
+                const speed = 850;
+                const bvx = this.vx * 0.25 + Math.cos(this.angle) * speed;
+                const bvy = this.vy * 0.25 + Math.sin(this.angle) * speed;
+
+                projectiles.push(new Projectile(muzzleX, muzzleY, bvx, bvy, true, 18, this.color, this.id));
+                audio.playLaser(this.id === 2);
+
+                // Small heat generation per shot
+                this.heat = Math.min(100, this.heat + 2.5);
+                if (this.heat >= 100) this.overheated = true;
+            }
+
+            runPointDefense(dt) {
+                // Find nearest hostile projectile or drone
+                let nearest = null;
+                let minDist = 220;
+
+                projectiles.forEach(p => {
+                    if (!p.isPlayer) {
+                        const d = Math.hypot(p.x - this.x, p.y - this.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = p;
+                        }
+                    }
+                });
+
+                if (nearest) {
+                    const pdAngle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+                    projectiles.push(new Projectile(this.x, this.y, Math.cos(pdAngle) * 900, Math.sin(pdAngle) * 900, true, 12, '#38bdf8', this.id));
+                    audio.playLaser(false);
+                }
+            }
+
+            takeDamage(amount) {
+                if (this.invincibleTimer > 0) return;
+
+                audio.playShieldHit();
+                
+                // Shield absorbs damage first
+                if (this.shield > 0) {
+                    if (this.shield >= amount) {
+                        this.shield -= amount;
+                        amount = 0;
+                    } else {
+                        amount -= this.shield;
+                        this.shield = 0;
+                    }
+                }
+
+                // Residual damage applies to ship Hull
+                if (amount > 0) {
+                    this.hull = Math.max(0, this.hull - amount);
+                    triggerScreenShake(8);
+                    createExplosion(this.x, this.y, '#f43f5e', 12);
+
+                    if (this.hull <= 0) {
+                        createExplosion(this.x, this.y, '#f43f5e', 40);
+                        audio.playExplosion('large');
+                        checkGameOverCondition();
+                    }
+                }
+            }
+
+            triggerAbility(abilityIndex) {
+                if (this.hull <= 0) return;
+                const ab = ABILITIES[abilityIndex];
+                
+                if (this.abilityCooldowns[abilityIndex] > 0) {
+                    showHudAlert("ABILITY ON COOLDOWN");
+                    return;
+                }
+
+                // Ability Cost applies heat
+                if (this.heat + ab.cost > 100) {
+                    showHudAlert("REACTOR OVERHEAT WARNING");
+                    return;
+                }
+
+                this.heat += ab.cost;
+                this.abilityCooldowns[abilityIndex] = ab.cd;
+                totalAbilitiesUsed++;
+                audio.playAbilitySound(ab.name.toLowerCase());
+
+                // Execute Specific Ability Logic
+                switch(ab.id) {
+                    case 1: // EMP Blast
+                        createExplosion(this.x, this.y, '#38bdf8', 60);
+                        projectiles = projectiles.filter(p => p.isPlayer);
+                        enemies.forEach(e => {
+                            e.takeDamage(45, this.id);
+                            e.vx *= 0.1; e.vy *= 0.1;
+                        });
+                        break;
+
+                    case 2: // Quantum Vector Dash
+                        this.vx += Math.cos(this.angle) * 1200;
+                        this.vy += Math.sin(this.angle) * 1200;
+                        this.invincibleTimer = 1.0;
+                        createExplosion(this.x, this.y, '#38bdf8', 20);
+                        break;
+
+                    case 3: // Kinetic Point Defense
+                        this.pointDefenseTimer = 6.0;
+                        break;
+
+                    case 4: // Hyper Shield Overcharge
+                        this.invincibleTimer = 5.0;
+                        this.shield = this.maxShield;
+                        break;
+
+                    case 5: // Gravity Well Anchor
+                        singularities.push(new Singularity(this.x + Math.cos(this.angle) * 200, this.y + Math.sin(this.angle) * 200));
+                        break;
+
+                    case 6: // Plasma Beam
+                        this.beamTimer = 3.0;
+                        break;
+
+                    case 7: // Target Nanites
+                        enemies.forEach(e => {
+                            if (Math.hypot(e.x - this.x, e.y - this.y) < 400) {
+                                e.takeDamage(30, this.id);
+                                e.speed *= 0.5;
+                            }
+                        });
+                        break;
+
+                    case 8: // Tactical Cloak
+                        this.cloakTimer = 5.0;
+                        break;
+
+                    case 9: // Nuclear Micro-Warhead
+                        warheads.push(new Warhead(this.x, this.y, this.angle, this.id));
+                        break;
+
+                    case 10: // Siphon Matrix
+                        let totalSiphoned = 0;
+                        enemies.forEach(e => {
+                            if (Math.hypot(e.x - this.x, e.y - this.y) < 350) {
+                                e.takeDamage(40, this.id);
+                                totalSiphoned += 20;
+                            }
+                        });
+                        this.shield = Math.min(this.maxShield, this.shield + totalSiphoned);
+                        this.hull = Math.min(this.maxHull, this.hull + totalSiphoned * 0.5);
+                        break;
+                }
+            }
+
+            draw() {
+                if (this.hull <= 0) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Cloak Semi-Transparency Effect
+                if (this.cloakTimer > 0) {
+                    ctx.globalAlpha = 0.35;
+                }
+
+                ctx.rotate(this.angle);
+
+                // Hyper Shield Invincibility Aura
+                if (this.invincibleTimer > 0) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#38bdf8';
+                    ctx.stroke();
+                }
+
+                // Vector Ship Geometry Hull
+                ctx.beginPath();
+                ctx.moveTo(this.radius + 4, 0); // Nose
+                ctx.lineTo(-this.radius, -this.radius + 4); // Left Wing Tip
+                ctx.lineTo(-this.radius + 6, 0); // Engine Notch
+                ctx.lineTo(-this.radius, this.radius - 4); // Right Wing Tip
+                ctx.closePath();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.stroke();
+
+                // Thruster Nozzle Glow
+                ctx.beginPath();
+                ctx.arc(-this.radius + 4, 0, 4, 0, Math.PI * 2);
+                ctx.fillStyle = keys[this.keyUp] ? '#f59e0b' : '#334155';
+                ctx.fill();
+
+                ctx.restore();
+
+                // Continuous Heavy Plasma Beam Rendering
+                if (this.beamTimer > 0) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    const beamEndX = this.x + Math.cos(this.angle) * 1000;
+                    const beamEndY = this.y + Math.sin(this.angle) * 1000;
+                    ctx.lineTo(beamEndX, beamEndY);
+                    ctx.strokeStyle = '#f43f5e';
+                    ctx.lineWidth = 8;
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // Beam Collision Line Detection
+                    enemies.forEach(e => {
+                        const distToLine = distanceToSegment({x: this.x, y: this.y}, {x: beamEndX, y: beamEndY}, {x: e.x, y: e.y});
+                        if (distToLine < e.radius + 4) {
+                            e.takeDamage(120 * 0.016, this.id);
+                        }
+                    });
+                }
+            }
+        }
+
+        /* ==========================================================================
+           PROJECTILE & MISSILE ENTITIES
+           ========================================================================== */
+        class Projectile {
+            constructor(x, y, vx, vy, isPlayer = true, damage = 20, color = '#38bdf8', ownerId = 1) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.isPlayer = isPlayer;
+                this.damage = damage;
+                this.color = color;
+                this.ownerId = ownerId;
+                this.radius = isPlayer ? 3 : 4;
+                this.life = 2.2; // Seconds life
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Nuclear Warhead Entity
+        class Warhead {
+            constructor(x, y, angle, ownerId) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = 450;
+                this.ownerId = ownerId;
+                this.life = 4.0;
+                this.radius = 6;
+            }
+
+            update(dt) {
+                this.x += Math.cos(this.angle) * this.speed * dt;
+                this.y += Math.sin(this.angle) * this.speed * dt;
+                this.life -= dt;
+
+                // Missile Exhaust Particles
+                createThrusterParticle(this.x, this.y, this.angle, '#f59e0b');
+
+                // Proximity Detonation
+                enemies.forEach(e => {
+                    if (Math.hypot(e.x - this.x, e.y - this.y) < 40) {
+                        this.detonate();
+                    }
+                });
+
+                if (this.life <= 0) this.detonate();
+            }
+
+            detonate() {
+                createExplosion(this.x, this.y, '#f59e0b', 80);
+                audio.playExplosion('large');
+                triggerScreenShake(15);
+
+                enemies.forEach(e => {
+                    if (Math.hypot(e.x - this.x, e.y - this.y) < 220) {
+                        e.takeDamage(180, this.ownerId);
+                    }
+                });
+                this.dead = true;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(-6, -3, 12, 6);
+                ctx.restore();
+            }
+        }
+
+        // Singularity Black Hole Entity
+        class Singularity {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.life = 6.0;
+                this.radius = 35;
+            }
+
+            update(dt) {
+                this.life -= dt;
+                // Gravitational Pull Field
+                enemies.forEach(e => {
+                    const dx = this.x - e.x;
+                    const dy = this.y - e.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist < 380 && dist > 10) {
+                        const force = (380 - dist) * 2.5;
+                        e.vx += (dx / dist) * force * dt;
+                        e.vy += (dy / dist) * force * dt;
+                        e.takeDamage(15 * dt, 1);
+                    }
+                });
+            }
+
+            draw() {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#020617';
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = '#a855f7';
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        /* ==========================================================================
+           ALIEN HOSTILE ENTITIES & TYPES
+           ========================================================================== */
+        class AlienEnemy {
+            constructor(type, x, y) {
+                this.type = type; // 'scrapper', 'dreadnought', 'sniper', 'boss'
+                this.x = x;
+                this.y = y;
+                
+                const mult = DIFF_SETTINGS[difficultyLevel];
+
+                switch(type) {
+                    case 'scrapper':
+                        this.radius = 16;
+                        this.maxHp = 35 * mult.enemyHpMult;
+                        this.speed = 220 * mult.enemySpeedMult;
+                        this.color = '#f43f5e';
+                        this.scoreVal = 150;
+                        break;
+
+                    case 'sniper':
+                        this.radius = 20;
+                        this.maxHp = 60 * mult.enemyHpMult;
+                        this.speed = 130 * mult.enemySpeedMult;
+                        this.color = '#a855f7';
+                        this.scoreVal = 300;
+                        this.fireTimer = 2.0;
+                        break;
+
+                    case 'dreadnought':
+                        this.radius = 32;
+                        this.maxHp = 220 * mult.enemyHpMult;
+                        this.speed = 65 * mult.enemySpeedMult;
+                        this.color = '#f59e0b';
+                        this.scoreVal = 650;
+                        this.fireTimer = 1.5;
+                        break;
+
+                    case 'boss':
+                        this.radius = 65;
+                        this.maxHp = 1800 * mult.enemyHpMult;
+                        this.speed = 40 * mult.enemySpeedMult;
+                        this.color = '#e11d48';
+                        this.scoreVal = 5000;
+                        this.fireTimer = 0.8;
+                        break;
+                }
+
+                this.hp = this.maxHp;
+                this.vx = 0;
+                this.vy = 0;
+            }
+
+            update(dt, players) {
+                // Find nearest living target
+                let target = null;
+                let minDist = Infinity;
+                players.forEach(p => {
+                    if (p.hull > 0 && p.cloakTimer <= 0) {
+                        const d = Math.hypot(p.x - this.x, p.y - this.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            target = p;
+                        }
+                    }
+                });
+
+                if (target) {
+                    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+                    
+                    // Vector velocity toward target
+                    this.vx = Math.cos(angle) * this.speed;
+                    this.vy = Math.sin(angle) * this.speed;
+
+                    // Firing Mechanics
+                    if (this.fireTimer !== undefined) {
+                        this.fireTimer -= dt;
+                        if (this.fireTimer <= 0) {
+                            this.fireWeapon(target, angle);
+                            this.fireTimer = this.type === 'boss' ? 0.6 : (this.type === 'sniper' ? 2.5 : 1.8);
+                        }
+                    }
+                }
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // Ramming Collision with Players
+                players.forEach(p => {
+                    if (p.hull > 0) {
+                        const dist = Math.hypot(p.x - this.x, p.y - this.y);
+                        if (dist < this.radius + p.radius) {
+                            p.takeDamage(this.type === 'dreadnought' ? 40 : 20);
+                            this.takeDamage(50, p.id);
+                        }
+                    }
+                });
+            }
+
+            fireWeapon(target, angle) {
+                if (this.type === 'sniper') {
+                    projectiles.push(new Projectile(this.x, this.y, Math.cos(angle) * 650, Math.sin(angle) * 650, false, 25, '#a855f7'));
+                } else if (this.type === 'dreadnought') {
+                    // Spread 3 plasma bursts
+                    for (let delta = -0.2; delta <= 0.2; delta += 0.2) {
+                        projectiles.push(new Projectile(this.x, this.y, Math.cos(angle + delta) * 450, Math.sin(angle + delta) * 450, false, 18, '#f59e0b'));
+                    }
+                } else if (this.type === 'boss') {
+                    // Radial Nova Attack
+                    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                        projectiles.push(new Projectile(this.x, this.y, Math.cos(a) * 380, Math.sin(a) * 380, false, 20, '#e11d48'));
+                    }
+                }
+            }
+
+            takeDamage(amount, ownerId = 1) {
+                this.hp -= amount;
+                totalDamageDealt += amount;
+
+                // Track individual player stats for MVP
+                const player = players.find(p => p.id === ownerId);
+                if (player) player.damageDealt += amount;
+
+                if (this.hp <= 0 && !this.dead) {
+                    this.dead = true;
+                    totalKills++;
+                    gameScore += Math.round(this.scoreVal * scoreMultiplier);
+
+                    if (player) player.kills++;
+
+                    createExplosion(this.x, this.y, this.color, this.type === 'boss' ? 90 : 25);
+                    audio.playExplosion(this.type === 'boss' ? 'large' : 'medium');
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Geometric Vector Alien Ship Outlines
+                ctx.beginPath();
+                if (this.type === 'scrapper') {
+                    ctx.moveTo(this.radius, 0);
+                    ctx.lineTo(-this.radius, -this.radius * 0.7);
+                    ctx.lineTo(-this.radius * 0.4, 0);
+                    ctx.lineTo(-this.radius, this.radius * 0.7);
+                } else if (this.type === 'dreadnought' || this.type === 'boss') {
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                } else if (this.type === 'sniper') {
+                    ctx.moveTo(this.radius * 1.4, 0);
+                    ctx.lineTo(-this.radius, -this.radius * 0.5);
+                    ctx.lineTo(-this.radius, this.radius * 0.5);
+                }
+                ctx.closePath();
+
+                ctx.fillStyle = '#090d16';
+                ctx.fill();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = this.color;
+                ctx.stroke();
+
+                // HP Bar Overhead
+                if (this.hp < this.maxHp) {
+                    const hpPercent = Math.max(0, this.hp / this.maxHp);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(-20, -this.radius - 12, 40, 4);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-20, -this.radius - 12, 40 * hpPercent, 4);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* ==========================================================================
+           PARTICLE EFFECTS & STARFIELD
+           ========================================================================== */
+        let particles = [];
+        let stars = [];
+
+        function initStarfield() {
+            stars = [];
+            for (let i = 0; i < 180; i++) {
+                stars.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    size: Math.random() * 1.8 + 0.5,
+                    depth: Math.random() * 0.8 + 0.2,
+                    alpha: Math.random() * 0.8 + 0.2
+                });
+            }
+        }
+
+        function createExplosion(x, y, color, count = 20) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 260 + 40;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color,
+                    radius: Math.random() * 3 + 1,
+                    life: Math.random() * 0.6 + 0.2
+                });
+            }
+        }
+
+        function createThrusterParticle(x, y, shipAngle, color) {
+            const spread = (Math.random() - 0.5) * 0.4;
+            const angle = shipAngle + Math.PI + spread;
+            const speed = Math.random() * 180 + 80;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color,
+                radius: Math.random() * 2.5 + 1,
+                life: 0.25
+            });
+        }
+
+        function triggerScreenShake(intensity) {
+            screenShakeTime = intensity;
+        }
+
+        /* ==========================================================================
+           COLLECTION ARRAYS & SPAWN LOGIC
+           ========================================================================== */
+        let players = [];
+        let enemies = [];
+        let projectiles = [];
+        let warheads = [];
+        let singularities = [];
+        let lastSpawnTime = 0;
+        let bossSpawned = false;
+
+        function spawnEnemiesProcedural(timestamp) {
+            const currentDiff = DIFF_SETTINGS[difficultyLevel];
+            
+            if (timestamp - lastSpawnTime > currentDiff.spawnInterval) {
+                lastSpawnTime = timestamp;
+
+                // Sector Progress drives enemy types
+                let type = 'scrapper';
+                const rand = Math.random();
+
+                if (sectorDistance > 60.0 && rand < 0.3) {
+                    type = 'dreadnought';
+                } else if (sectorDistance > 25.0 && rand < 0.55) {
+                    type = 'sniper';
+                }
+
+                // Spawn on screen edges
+                const edge = Math.floor(Math.random() * 4);
+                let x, y;
+                if (edge === 0) { x = Math.random() * canvas.width; y = -30; }
+                else if (edge === 1) { x = canvas.width + 30; y = Math.random() * canvas.height; }
+                else if (edge === 2) { x = Math.random() * canvas.width; y = canvas.height + 30; }
+                else { x = -30; y = Math.random() * canvas.height; }
+
+                enemies.push(new AlienEnemy(type, x, y));
+            }
+
+            // Sector 95m Boss Event
+            if (sectorDistance >= 95.0 && !bossSpawned) {
+                bossSpawned = true;
+                enemies.push(new AlienEnemy('boss', canvas.width / 2, -80));
+                showHudAlert("⚠️ ALIEN HIVE ALPHA DETECTED ⚠️");
+            }
+        }
+
+        /* ==========================================================================
+           UI MANAGEMENT & HUD UPDATES
+           ========================================================================== */
+        function initAbilitiesDockUI() {
+            const dock = document.getElementById('abilitiesDock');
+            dock.innerHTML = '';
+
+            ABILITIES.forEach((ab, idx) => {
+                const card = document.createElement('div');
+                card.id = `abilityCard_${idx}`;
+                card.className = "ability-card glass-panel p-1.5 rounded-lg border border-slate-800 text-center flex flex-col items-center justify-between cursor-pointer relative overflow-hidden";
+                card.onclick = () => {
+                    if (players[0]) players[0].triggerAbility(idx);
+                };
+
+                card.innerHTML = `
+                    <div class="text-[9px] text-slate-400 font-orbitron w-full flex justify-between px-0.5">
+                        <span class="text-cyan-400 font-bold">${ab.hotkeyP1}</span>
+                        <span class="text-indigo-400 font-bold">${ab.hotkeyP2}</span>
+                    </div>
+                    <div class="text-base my-0.5">${ab.icon}</div>
+                    <div class="text-[9px] font-orbitron font-semibold text-slate-200 truncate w-full">${ab.name}</div>
+                    <div id="cdOverlay_${idx}" class="absolute inset-0 bg-slate-950/85 flex items-center justify-center font-orbitron font-bold text-cyan-400 text-xs hidden">0.0s</div>
+                `;
+                dock.appendChild(card);
+            });
+        }
+
+        function updateHudUI() {
+            // Distance Metric (0m -> 100m)
+            document.getElementById('hudDistance').innerText = sectorDistance.toFixed(1);
+            const progress = Math.min(100, (sectorDistance / SECTOR_GOAL) * 100);
+            document.getElementById('distanceProgressBar').style.width = `${progress}%`;
+
+            // Global HUD Scores
+            document.getElementById('hudScore').innerText = gameScore;
+            document.getElementById('hudMultiplier').innerText = `${scoreMultiplier.toFixed(1)}x`;
+            document.getElementById('hudKills').innerText = totalKills;
+            
+            const accuracy = totalShotsFired > 0 ? Math.round((totalShotsHit / totalShotsFired) * 100) : 100;
+            document.getElementById('hudAccuracy').innerText = `${accuracy}%`;
+
+            // Update Ability Cooldown Overlays
+            ABILITIES.forEach((ab, idx) => {
+                const cdOverlay = document.getElementById(`cdOverlay_${idx}`);
+                let maxCd = 0;
+                players.forEach(p => {
+                    if (p.abilityCooldowns[idx] > maxCd) maxCd = p.abilityCooldowns[idx];
+                });
+
+                if (maxCd > 0) {
+                    cdOverlay.classList.remove('hidden');
+                    cdOverlay.innerText = `${maxCd.toFixed(1)}s`;
+                } else {
+                    cdOverlay.classList.add('hidden');
+                }
+            });
+
+            // Player 1 Stats
+            const p1 = players[0];
+            if (p1) {
+                document.getElementById('p1HullVal').innerText = `${Math.round(p1.hull)}%`;
+                document.getElementById('p1HullBar').style.width = `${p1.hull}%`;
+                document.getElementById('p1ShieldVal').innerText = `${Math.round(p1.shield)}%`;
+                document.getElementById('p1ShieldBar').style.width = `${p1.shield}%`;
+                document.getElementById('p1HeatVal').innerText = `${Math.round(p1.heat)}%`;
+                document.getElementById('p1HeatBar').style.width = `${p1.heat}%`;
+                
+                const vel = Math.round(Math.hypot(p1.vx, p1.vy));
+                document.getElementById('p1Vel').innerText = `${vel} m/s`;
+                document.getElementById('p1GForce').innerText = `${(1.0 + vel / 250).toFixed(1)} G`;
+                document.getElementById('p1Dampeners').innerText = `DAMP: ${p1.dampenersOn ? 'ON' : 'OFF'} (X)`;
+            }
+
+            // Player 2 Stats
+            const p2 = players[1];
+            if (p2 && gameMode === '2P') {
+                document.getElementById('p2HudPanel').classList.remove('opacity-50');
+                document.getElementById('p2HullVal').innerText = `${Math.round(p2.hull)}%`;
+                document.getElementById('p2HullBar').style.width = `${p2.hull}%`;
+                document.getElementById('p2ShieldVal').innerText = `${Math.round(p2.shield)}%`;
+                document.getElementById('p2ShieldBar').style.width = `${p2.shield}%`;
+                document.getElementById('p2HeatVal').innerText = `${Math.round(p2.heat)}%`;
+                document.getElementById('p2HeatBar').style.width = `${p2.heat}%`;
+
+                const vel = Math.round(Math.hypot(p2.vx, p2.vy));
+                document.getElementById('p2Vel').innerText = `${vel} m/s`;
+                document.getElementById('p2GForce').innerText = `${(1.0 + vel / 250).toFixed(1)} G`;
+                document.getElementById('p2Dampeners').innerText = `DAMP: ${p2.dampenersOn ? 'ON' : 'OFF'} (M)`;
+            } else {
+                document.getElementById('p2HudPanel').classList.add('opacity-50');
+            }
+        }
+
+        function showHudAlert(msg) {
+            const alertElem = document.getElementById('hudAlert');
+            alertElem.innerText = msg;
+            alertElem.style.opacity = '1';
+            set
